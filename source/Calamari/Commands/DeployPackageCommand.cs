@@ -24,6 +24,7 @@ namespace Calamari.Commands
     public class DeployPackageCommand : Command
     {
         private string variablesFile;
+        private string outputVariablesFile;
         private string packageFile;
         private string sensitiveVariablesFile;
         private string sensitiveVariablesPassword;
@@ -31,6 +32,7 @@ namespace Calamari.Commands
         public DeployPackageCommand()
         {
             Options.Add("variables=", "Path to a JSON file containing variables.", v => variablesFile = Path.GetFullPath(v));
+            Options.Add("outputVariables=", "Path to JSON file where output variables are stored.", v => outputVariablesFile = Path.GetFullPath(v));
             Options.Add("package=", "Path to the NuGet package to install.", v => packageFile = Path.GetFullPath(v));
             Options.Add("sensitiveVariables=", "Password protected JSON file containing sensitive-variables.", v => sensitiveVariablesFile = v);
             Options.Add("sensitiveVariablesPassword=", "Password used to decrypt sensitive-variables.", v => sensitiveVariablesPassword = v);
@@ -50,13 +52,17 @@ namespace Calamari.Commands
             var fileSystem = CalamariPhysicalFileSystem.GetPhysicalFileSystem();
 
             var variables = new CalamariVariableDictionary(variablesFile, sensitiveVariablesFile, sensitiveVariablesPassword);
+            var outputVariables = new VariableDictionary(outputVariablesFile);
+
+            variables.MergeWith(outputVariables);
+
             var scriptCapability = new CombinedScriptEngine();
             var replacer = new ConfigurationVariablesReplacer(variables.GetFlag(SpecialVariables.Package.IgnoreVariableReplacementErrors));
             var substituter = new FileSubstituter(fileSystem);
             var configurationTransformer = new ConfigurationTransformer(variables.GetFlag(SpecialVariables.Package.IgnoreConfigTransformationErrors), variables.GetFlag(SpecialVariables.Package.SuppressConfigTransformationLogging));
             var embeddedResources = new CallingAssemblyEmbeddedResources();
             var iis = new InternetInformationServer();
-            var commandLineRunner = new CommandLineRunner(new SplitCommandOutput(new ConsoleCommandOutput(), new ServiceMessageCommandOutput(variables)));
+            var commandLineRunner = new CommandLineRunner(new SplitCommandOutput(new ConsoleCommandOutput(), new ServiceMessageCommandOutput(variables), new ServiceMessageCommandOutput(outputVariables)));
             var semaphore = new SystemSemaphore();
             var journal = new DeploymentJournal(fileSystem, semaphore, variables);
 
@@ -92,6 +98,8 @@ namespace Calamari.Commands
             try
             {
                 conventionRunner.RunConventions();
+                outputVariables.Save();
+
                 if (!deployment.SkipJournal) 
                     journal.AddJournalEntry(new JournalEntry(deployment, true));
             }

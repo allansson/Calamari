@@ -46,7 +46,10 @@ namespace Calamari.Integration.Processes
             variables.Set(machineIndexedVariableName, value);
         }
 
-
+        public static void MergeWith(this VariableDictionary variables, VariableDictionary other)
+        {
+            other.GetNames().ForEach(name => variables.Set(name, other.GetRaw(name)));
+        }
 
         public static void LogVariables(this VariableDictionary variables)
         {
