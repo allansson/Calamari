@@ -30,8 +30,7 @@ namespace Calamari.Integration.Processes
                 if (!fileSystem.FileExists(storageFilePath))
                     throw new CommandException("Could not find variables file: " + storageFilePath);
 
-                var nonSensitiveVariables =  new VariableDictionary(storageFilePath);
-                nonSensitiveVariables.GetNames().ForEach(name => Set(name, nonSensitiveVariables.GetRaw(name)));
+                this.MergeWith(new VariableDictionary(storageFilePath));
             }
 
             if (!string.IsNullOrEmpty(sensitiveFilePath))
